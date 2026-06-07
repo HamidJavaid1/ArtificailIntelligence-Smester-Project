@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Play Orbit Wars</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0d12;color:#cdd6f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── TOP BAR ── */
+#topbar{height:48px;background:#13151e;border-bottom:1px solid #1e2235;display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;z-index:10}
+#topbar-back{background:none;border:none;color:#cdd6f4;cursor:pointer;font-size:18px;display:flex;align-items:center;gap:6px;padding:4px 0}
+#topbar-back:hover{color:#fff}
+#topbar-title{font-size:16px;font-weight:500}
+
+/* ── SCREENS ── */
+#screen-setup,#screen-game{position:absolute;inset:48px 0 0;transition:opacity .2s}
+#screen-setup{display:flex;align-items:center;justify-content:center;background:#0b0d12}
+#screen-game{display:none;flex-direction:row}
+
+/* ── SETUP CARD ── */
+.setup-card{background:#13151e;border:1px solid #1e2235;border-radius:10px;padding:32px 36px;width:340px}
+.setup-card h2{font-size:22px;font-weight:700;margin-bottom:24px}
+.form-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;font-size:14px}
+.form-row label{color:#8892a4}
+.form-row select,.form-row input{background:#0d0f17;border:1px solid #252840;border-radius:6px;color:#cdd6f4;padding:6px 10px;font-size:13px;outline:none}
+.form-row select:focus,.form-row input:focus{border-color:#3b82f6}
+.player-badge{color:#3b82f6;font-size:13px}
+#btn-start{margin-top:8px;float:right;background:#1e2a4a;border:1px solid #3b82f6;color:#cdd6f4;padding:8px 22px;border-radius:6px;font-size:14px;cursor:pointer}
+#btn-start:hover{background:#2a3d6a}
+
+/* ── GAME LAYOUT ── */
+#canvas-wrap{flex:1;position:relative;overflow:hidden;background:#0b0d12}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* ── RIGHT PANEL ── */
+#panel{width:220px;flex-shrink:0;background:#13151e;border-left:1px solid #1e2235;display:flex;flex-direction:column;padding:16px 14px;gap:12px;overflow-y:auto}
+#panel-turn{font-size:17px;font-weight:600}
+#panel-scores{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.score-row{display:flex;align-items:center;gap:8px}
+.sdot{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.sname{flex:1;color:#8892a4}
+.sval{font-weight:600}
+#panel-queue{font-size:13px;color:#8892a4}
+.panel-btn{background:#1a1d2a;border:1px solid #252840;color:#cdd6f4;padding:8px 0;border-radius:6px;font-size:13px;cursor:pointer;width:100%;text-align:center}
+.panel-btn:hover{background:#232640;border-color:#3b82f6}
+.panel-btn.primary{background:#1e2a4a;border-color:#3b82f6}
+.panel-btn.primary:hover{background:#2a3d6a}
+#panel-hint{font-size:12px;color:#5a6380;line-height:1.6;margin-top:4px}
+
+/* ── FLEET MENU popup ── */
+#fleet-menu{position:absolute;display:none;background:#13151e;border:1px solid #252840;border-radius:8px;padding:12px 14px;z-index:20;width:200px;box-shadow:0 4px 24px rgba(0,0,0,.6)}
+#fleet-menu h4{font-size:13px;font-weight:600;margin-bottom:10px}
+.fm-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px}
+.fm-row label{color:#8892a4;flex:1}
+.fm-row input[type=range]{flex:2;accent-color:#3b82f6}
+.fm-row span{width:32px;text-align:right;font-size:12px}
+#fm-aim-hint{font-size:11px;color:#5a6380;margin-bottom:8px}
+#fm-send{width:100%;padding:7px;background:#1e2a4a;border:1px solid #3b82f6;color:#cdd6f4;border-radius:5px;font-size:13px;cursor:pointer}
+#fm-send:hover{background:#2a3d6a}
+#fm-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#5a6380;cursor:pointer;font-size:16px}
+
+/* ── TOOLTIP ── */
+#tt{position:absolute;pointer-events:none;background:rgba(13,15,23,.92);border:1px solid #252840;border-radius:5px;padding:6px 10px;font-size:12px;display:none;z-index:30;line-height:1.7}
+
+/* ── END OVERLAY ── */
+#end-overlay{position:absolute;inset:0;background:rgba(11,13,18,.8);display:none;align-items:center;justify-content:center;z-index:40}
+.end-card{background:#13151e;border:1px solid #252840;border-radius:10px;padding:32px 40px;text-align:center;max-width:360px}
+.end-card h2{font-size:26px;font-weight:700;margin-bottom:8px}
+.end-card p{font-size:13px;color:#8892a4;line-height:1.7;margin-bottom:20px}
+.end-card button{background:#1e2a4a;border:1px solid #3b82f6;color:#cdd6f4;padding:10px 28px;border-radius:6px;font-size:14px;cursor:pointer}
+.end-card button:hover{background:#2a3d6a}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <button id="topbar-back" onclick="showSetup()">&#8592;</button>
+  <span id="topbar-title">Play Orbit Wars</span>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="screen-setup">
+  <div class="setup-card">
+    <h2>Orbit Wars</h2>
+    <div class="form-row">
+      <label>Players</label>
+      <select id="sel-players">
+        <option value="2">2 (Human + 1 AI)</option>
+        <option value="3">3 (Human + 2 AI)</option>
+        <option value="4">4 (Human + 3 AI)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>You</label>
+      <span class="player-badge">Player 1 (Human)</span>
+    </div>
+    <div class="form-row" id="row-ai1">
+      <label>AI 1</label>
+      <select id="diff-1"><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+    </div>
+    <div class="form-row" id="row-ai2" style="display:none">
+      <label>AI 2</label>
+      <select id="diff-2"><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+    </div>
+    <div class="form-row" id="row-ai3" style="display:none">
+      <label>AI 3</label>
+      <select id="diff-3"><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+    </div>
+    <div class="form-row">
+      <label>Seed</label>
+      <input id="inp-seed" placeholder="random" style="width:120px">
+    </div>
+    <div style="overflow:hidden;margin-top:8px">
+      <button id="btn-start">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="screen-game">
+  <div id="canvas-wrap">
+    <canvas id="gc"></canvas>
+    <div id="fleet-menu">
+      <button id="fm-close" onclick="closeFleetMenu()">×</button>
+      <h4 id="fm-title">Planet #0</h4>
+      <div id="fm-aim-hint">Drag on canvas to aim</div>
+      <div class="fm-row">
+        <label>Angle</label>
+        <input type="range" id="fm-angle" min="0" max="360" value="0">
+        <span id="fm-angle-val">0°</span>
+      </div>
+      <div class="fm-row">
+        <label>Ships</label>
+        <input type="range" id="fm-ships" min="1" max="1" value="1">
+        <span id="fm-ships-val">1</span>
+      </div>
+      <button id="fm-send">Queue Send</button>
+    </div>
+    <div id="tt"></div>
+    <div id="end-overlay">
+      <div class="end-card">
+        <h2 id="end-title"></h2>
+        <p id="end-body"></p>
+        <button onclick="showSetup()">New Game</button>
+      </div>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="panel-turn">Step 0 / 500</div>
+    <div id="panel-scores"></div>
+    <div id="panel-queue">Queued orders: 0</div>
+    <button class="panel-btn primary" id="btn-step">Step (Space)</button>
+    <button class="panel-btn" id="btn-auto">Auto-play ▶</button>
+    <button class="panel-btn" id="btn-reset">Reset</button>
+    <button class="panel-btn" id="btn-new">New Game</button>
+    <div id="panel-hint">Click an owned planet to open its fleet menu.<br><br>Drag from the planet to aim a fleet, set the count, then Send.<br><br>Press Space (or click Step) to advance one turn.</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const CFG={
+  W:100,H:100,SX:50,SY:50,SR:10,
+  TURNS:500,MAX_SPEED:6,
+};
+const PCOLORS=['#3b82f6','#f97316','#22c55e','#eab308'];
+const PNAMES=['You','Orange','Green','Yellow'];
+const AI_DIFF_KEYS=['Easy','Medium','Hard'];
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let G=null,canvas=null,ctx=null;
+let gameId=null;
+let numPlayers=2, difficulty='medium';
+let selectedPlanet=null, aimAngle=0;
+let queuedOrders=[];
+let autoPlay=false,autoTimer=null;
+let stars=[];
+let dragging=false;
+
+// ══════════════════════════════════════════
+// API CALLS
+// ══════════════════════════════════════════
+async function createGame(nPlayers, diff, seedStr){
+  try{
+    console.log('Creating game:',{nPlayers,diff,seedStr});
+    const response=await fetch('/api/new_game',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({players:nPlayers,difficulty:diff,seed:seedStr})
+    });
+    if(!response.ok){
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data=await response.json();
+    console.log('Game created:',data);
+    gameId=data.game_id;
+    G=data.state;
+    generateStars();
+    renderGame();
+    updatePanel();
+  }catch(e){
+    console.error('Error creating game:',e);
+    alert('Error creating game: '+e.message);
+  }
+}
+
+async function stepGame(){
+  if(!gameId||!G||G.over){
+    console.log('Cannot step:',{gameId:!!gameId,G:!!G,over:G?.over});
+    return;
+  }
+  try{
+    console.log('Stepping game with orders:',queuedOrders);
+    const playerActions={};
+    playerActions[0]=queuedOrders.map(o=>({
+      planet_id:o.planetId,
+      angle:o.angle,
+      ships:o.ships
+    }));
+    queuedOrders=[];
+    
+    const response=await fetch('/api/step',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({game_id:gameId,actions:playerActions})
+    });
+    if(!response.ok){
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data=await response.json();
+    console.log('Step response:',data);
+    G=data.state;
+    
+    if(data.is_over){
+      endGame(data.winner,data.scores);
+    }
+    
+    renderGame();
+    updatePanel();
+  }catch(e){
+    console.error('Error stepping game:',e);
+    alert('Error stepping game: '+e.message);
+  }
+}
+
+// ══════════════════════════════════════════
+// MATH
+// ══════════════════════════════════════════
+const dist=(ax,ay,bx,by)=>Math.sqrt((ax-bx)**2+(ay-by)**2);
+const angleTo=(x1,y1,x2,y2)=>Math.atan2(y2-y1,x2-x1);
+
+// ══════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════
+function w2s(wx,wy){
+  const cw=canvas.width,ch=canvas.height;
+  const sc=Math.min(cw,ch)/100;
+  const ox=(cw-100*sc)/2,oy=(ch-100*sc)/2;
+  return[ox+wx*sc,oy+wy*sc,sc];
+}
+
+function generateStars(){
+  stars=[];
+  for(let i=0;i<180;i++){
+    stars.push([Math.random()*100,Math.random()*100,Math.random()*.8+.2,Math.random()*.9+.1]);
+  }
+}
+
+function renderGame(){
+  if(!G)return;
+  const cw=canvas.width,ch=canvas.height;
+  ctx.fillStyle='#0b0d12';
+  ctx.fillRect(0,0,cw,ch);
+
+  // stars
+  for(const[sx,sy,r,a]of stars){
+    const[px,py,sc]=w2s(sx,sy);
+    ctx.globalAlpha=a;ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(px,py,r*.5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  const [ssx,ssy,sc]=w2s(CFG.SX,CFG.SY);
+
+  // sun glow
+  const sg=ctx.createRadialGradient(ssx,ssy,0,ssx,ssy,CFG.SR*sc*3);
+  sg.addColorStop(0,'rgba(251,191,36,.25)');sg.addColorStop(1,'transparent');
+  ctx.fillStyle=sg;ctx.beginPath();ctx.arc(ssx,ssy,CFG.SR*sc*3,0,Math.PI*2);ctx.fill();
+
+  // orbit rings
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;ctx.setLineDash([2,8]);
+  for(const p of G.planets){
+    if(p.orbit_r){
+      ctx.beginPath();ctx.arc(ssx,ssy,p.orbit_r*sc,0,Math.PI*2);ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+
+  // sun
+  ctx.fillStyle='#f59e0b';
+  ctx.beginPath();ctx.arc(ssx,ssy,CFG.SR*sc,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(251,191,36,.4)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(ssx,ssy,CFG.SR*sc,0,Math.PI*2);ctx.stroke();
+
+  // fleets
+  for(const f of G.fleets){
+    const[fx,fy]=w2s(f.x,f.y);
+    const col=PCOLORS[f.owner];
+    ctx.save();ctx.translate(fx,fy);ctx.rotate(f.angle);
+    ctx.fillStyle=col;ctx.globalAlpha=.9;
+    ctx.beginPath();ctx.moveTo(5,0);ctx.lineTo(-3,2.5);ctx.lineTo(-2,0);ctx.lineTo(-3,-2.5);ctx.closePath();ctx.fill();
+    ctx.restore();ctx.globalAlpha=1;
+    if(f.ships>=5){
+      ctx.fillStyle=col;ctx.font=`${Math.max(9,sc*.85)}px -apple-system,sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='bottom';
+      ctx.fillText(f.ships,fx,fy-4);
+    }
+  }
+
+  // planets
+  for(const p of G.planets){
+    const[px,py]=w2s(p.x,p.y);
+    const pr=p.radius*sc;
+    const isSelected=selectedPlanet&&p.id===selectedPlanet.id;
+
+    if(p.is_comet){
+      // tail
+      ctx.save();ctx.translate(px,py);ctx.rotate(p.angle+Math.PI);
+      const tg=ctx.createLinearGradient(-pr*6,0,0,0);
+      tg.addColorStop(0,'rgba(147,197,253,0)');tg.addColorStop(1,'rgba(186,230,253,.4)');
+      ctx.fillStyle=tg;ctx.fillRect(-pr*6,-pr*.5,pr*6,pr);ctx.restore();
+    }
+
+    const col=p.owner>=0?PCOLORS[p.owner]:'#4a5568';
+
+    // glow for owned
+    if(p.owner>=0){
+      ctx.shadowColor=col;ctx.shadowBlur=pr*2.5;
+    }
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.arc(px,py,pr,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+
+    // border
+    ctx.strokeStyle=isSelected?'#fff':p.owner>=0?col:'#6b7280';
+    ctx.lineWidth=isSelected?2.5:.8;
+    ctx.beginPath();ctx.arc(px,py,pr,0,Math.PI*2);ctx.stroke();
+
+    // ship count
+    ctx.fillStyle='#fff';
+    ctx.font=`${Math.max(8,Math.min(12,pr*1.1))}px -apple-system,sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(Math.floor(p.ships),px,py);
+  }
+
+  // aim line from selected
+  if(selectedPlanet&&selectedPlanet.owner===0){
+    const[spx,spy]=w2s(selectedPlanet.x,selectedPlanet.y);
+    const len=70;
+    ctx.strokeStyle='rgba(59,130,246,.6)';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
+    ctx.beginPath();ctx.moveTo(spx,spy);
+    ctx.lineTo(spx+Math.cos(aimAngle)*len,spy+Math.sin(aimAngle)*len);ctx.stroke();
+    ctx.setLineDash([]);
+    const ax=spx+Math.cos(aimAngle)*len,ay=spy+Math.sin(aimAngle)*len;
+    ctx.fillStyle='rgba(59,130,246,.8)';
+    ctx.save();ctx.translate(ax,ay);ctx.rotate(aimAngle);
+    ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(-5,4);ctx.lineTo(-4,0);ctx.lineTo(-5,-4);ctx.closePath();ctx.fill();
+    ctx.restore();
+  }
+}
+
+function totalShips(pl){
+  if(!G)return 0;
+  let s=0;
+  for(const p of G.planets)if(p.owner===pl)s+=Math.floor(p.ships);
+  for(const f of G.fleets)if(f.owner===pl)s+=f.ships;
+  return s;
+}
+
+// ══════════════════════════════════════════
+// PANEL
+// ══════════════════════════════════════════
+function updatePanel(){
+  if(!G)return;
+  document.getElementById('panel-turn').textContent=`Step ${G.turn} / ${CFG.TURNS}`;
+  document.getElementById('panel-queue').textContent=`Queued orders: ${queuedOrders.length}`;
+
+  const sc=document.getElementById('panel-scores');
+  sc.innerHTML='';
+  for(let i=0;i<G.num_players;i++){
+    const row=document.createElement('div');
+    row.className='score-row';
+    row.innerHTML=`<div class="sdot" style="background:${PCOLORS[i]}"></div>
+      <span class="sname">${PNAMES[i]}</span>
+      <span class="sval" style="color:${PCOLORS[i]}">${totalShips(i)}</span>`;
+    sc.appendChild(row);
+  }
+}
+
+// ══════════════════════════════════════════
+// FLEET MENU
+// ══════════════════════════════════════════
+function openFleetMenu(planet,screenX,screenY){
+  selectedPlanet=planet;
+  const fm=document.getElementById('fleet-menu');
+  document.getElementById('fm-title').textContent=`Planet #${planet.id}${planet.is_comet?' ☄':''}`;
+  const max=Math.max(1,Math.floor(planet.ships)-1);
+  const sh=document.getElementById('fm-ships');
+  sh.max=max;sh.value=Math.floor(max/2)||1;
+  document.getElementById('fm-ships-val').textContent=sh.value;
+  document.getElementById('fm-angle').value=Math.round(aimAngle*180/Math.PI+360)%360;
+  document.getElementById('fm-angle-val').textContent=document.getElementById('fm-angle').value+'°';
+
+  // position near planet but keep in view
+  const wrap=document.getElementById('canvas-wrap').getBoundingClientRect();
+  let lx=screenX+14, ly=screenY-20;
+  if(lx+210>wrap.width)lx=screenX-210;
+  if(ly+200>wrap.height)ly=wrap.height-200;
+  fm.style.left=lx+'px';fm.style.top=ly+'px';
+  fm.style.display='block';
+}
+function closeFleetMenu(){
+  document.getElementById('fleet-menu').style.display='none';
+  selectedPlanet=null;
+  renderGame();
+}
+
+// ══════════════════════════════════════════
+// CANVAS EVENTS
+// ══════════════════════════════════════════
+function canvasCoords(e){
+  const rect=canvas.getBoundingClientRect();
+  const cx=(e.clientX-rect.left)*(canvas.width/rect.width);
+  const cy=(e.clientY-rect.top)*(canvas.height/rect.height);
+  const[ox,oy,sc]=w2s(0,0);
+  return[(cx-ox)/sc,(cy-oy)/sc];
+}
+
+function onCanvasDown(e){
+  if(!G||G.over)return;
+  const[wx,wy]=canvasCoords(e);
+  // check planet click
+  for(const p of G.planets){
+    if(dist(wx,wy,p.x,p.y)<p.radius+1.5){
+      if(p.owner===0){
+        aimAngle=0;
+        const rect=canvas.getBoundingClientRect();
+        const sx=(e.clientX-rect.left), sy=(e.clientY-rect.top);
+        openFleetMenu(p,sx,sy);
+      }
+      return;
+    }
+  }
+  // click on empty — set aim angle
+  if(selectedPlanet&&selectedPlanet.owner===0){
+    aimAngle=angleTo(selectedPlanet.x,selectedPlanet.y,wx,wy);
+    syncFleetMenuAngle();
+    dragging=true;
+  }
+  // close menu if clicking empty
+  if(!selectedPlanet)closeFleetMenu();
+}
+
+function onCanvasMove(e){
+  if(!G)return;
+  const[wx,wy]=canvasCoords(e);
+
+  // tooltip
+  const tt=document.getElementById('tt');
+  let found=false;
+  for(const p of G.planets){
+    if(dist(wx,wy,p.x,p.y)<p.radius+2){
+      const on=p.owner>=0?`<span style="color:${PCOLORS[p.owner]}">${PNAMES[p.owner]}</span>`:'Neutral';
+      tt.innerHTML=`${p.is_comet?'☄ Comet':'Planet'} #${p.id} — ${on}<br>Ships: ${Math.floor(p.ships)} &nbsp; Prod: +${p.production}/turn`;
+      const rect=document.getElementById('canvas-wrap').getBoundingClientRect();
+      tt.style.left=(e.clientX-rect.left+12)+'px';
+      tt.style.top=(e.clientY-rect.top-8)+'px';
+      tt.style.display='block';found=true;break;
+    }
+  }
+  if(!found)tt.style.display='none';
+
+  // drag to aim
+  if(dragging&&selectedPlanet&&selectedPlanet.owner===0){
+    aimAngle=angleTo(selectedPlanet.x,selectedPlanet.y,wx,wy);
+    syncFleetMenuAngle();
+    renderGame();
+  }
+}
+
+function onCanvasUp(){dragging=false}
+
+function syncFleetMenuAngle(){
+  const deg=((aimAngle*180/Math.PI)+360)%360;
+  document.getElementById('fm-angle').value=Math.round(deg);
+  document.getElementById('fm-angle-val').textContent=Math.round(deg)+'°';
+}
+
+// ══════════════════════════════════════════
+// SETUP → GAME SCREENS
+// ══════════════════════════════════════════
+function showSetup(){
+  document.getElementById('screen-setup').style.display='flex';
+  document.getElementById('screen-game').style.display='none';
+  document.getElementById('end-overlay').style.display='none';
+  if(autoPlay)toggleAuto();
+}
+
+function showGame(){
+  document.getElementById('screen-setup').style.display='none';
+  document.getElementById('screen-game').style.display='flex';
+  resize();
+  renderGame();
+  updatePanel();
+}
+
+function doStep(){
+  stepGame();
+}
+
+function toggleAuto(){
+  autoPlay=!autoPlay;
+  const btn=document.getElementById('btn-auto');
+  if(autoPlay){
+    btn.textContent='Pause ⏸';
+    autoTimer=setInterval(stepGame,120);
+  } else {
+    btn.textContent='Auto-play ▶';
+    clearInterval(autoTimer);
+  }
+}
+
+function endGame(winner,scores){
+  G.over=true;
+  if(autoPlay)toggleAuto();
+  const el=document.getElementById('end-overlay');
+  const t=document.getElementById('end-title');
+  const b=document.getElementById('end-body');
+  el.style.display='flex';
+  t.style.color=PCOLORS[winner];
+  t.textContent=winner===0?'Victory!':'Defeated';
+  let body='';
+  for(let i=0;i<G.num_players;i++)body+=`${PNAMES[i]}: ${scores[i]} ships\n`;
+  b.style.whiteSpace='pre';
+  b.textContent=(winner===0?'You conquered the solar system!\n\n':'AI dominates the galaxy.\n\n')+body;
+}
+
+function resize(){
+  if(!canvas)return;
+  const wrap=document.getElementById('canvas-wrap');
+  canvas.width=wrap.clientWidth;
+  canvas.height=wrap.clientHeight;
+  generateStars();
+  renderGame();
+}
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  canvas=document.getElementById('gc');
+  ctx=canvas.getContext('2d');
+
+  window.addEventListener('resize',resize);
+
+  // setup screen player count
+  document.getElementById('sel-players').addEventListener('change',function(){
+    const n=+this.value;
+    document.getElementById('row-ai2').style.display=n>=3?'flex':'none';
+    document.getElementById('row-ai3').style.display=n>=4?'flex':'none';
+  });
+
+  document.getElementById('btn-start').addEventListener('click',async ()=>{
+    const n=+document.getElementById('sel-players').value;
+    const diff=document.getElementById('diff-1').value.toLowerCase();
+    const seed=document.getElementById('inp-seed').value.trim();
+    numPlayers=n;
+    difficulty=diff;
+    await createGame(n,diff,seed);
+    if(G){
+      showGame();
+    }else{
+      alert('Failed to create game. Check console for errors.');
+    }
+  });
+
+  document.getElementById('btn-step').addEventListener('click',doStep);
+  document.getElementById('btn-auto').addEventListener('click',toggleAuto);
+  document.getElementById('btn-reset').addEventListener('click',async ()=>{
+    await createGame(numPlayers,difficulty,'');
+    if(G){
+      resize();
+      updatePanel();
+    }
+  });
+  document.getElementById('btn-new').addEventListener('click',showSetup);
+
+  // fleet menu controls
+  document.getElementById('fm-angle').addEventListener('input',function(){
+    aimAngle=+this.value*Math.PI/180;
+    document.getElementById('fm-angle-val').textContent=this.value+'°';
+    renderGame();
+  });
+  document.getElementById('fm-ships').addEventListener('input',function(){
+    document.getElementById('fm-ships-val').textContent=this.value;
+  });
+  document.getElementById('fm-send').addEventListener('click',()=>{
+    if(!selectedPlanet||selectedPlanet.owner!==0)return;
+    const ships=+document.getElementById('fm-ships').value;
+    if(ships<1)return;
+    queuedOrders.push({planetId:selectedPlanet.id,angle:aimAngle,ships});
+    updatePanel();
+    // flash feedback
+    const btn=document.getElementById('fm-send');
+    btn.textContent='Queued ✓';btn.style.borderColor='#22c55e';
+    setTimeout(()=>{btn.textContent='Queue Send';btn.style.borderColor='#3b82f6';},700);
+  });
+
+  // canvas
+  canvas.addEventListener('mousedown',onCanvasDown);
+  canvas.addEventListener('mousemove',onCanvasMove);
+  canvas.addEventListener('mouseup',onCanvasUp);
+
+  // spacebar
+  window.addEventListener('keydown',e=>{
+    if(e.code==='Space'&&document.getElementById('screen-game').style.display!=='none'){
+      e.preventDefault();doStep();
+    }
+  });
+
+  // show setup on load
+  showSetup();
+});
+</script>
+</body>
+</html>
