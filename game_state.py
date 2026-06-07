@@ -164,18 +164,19 @@ class GameState:
         """Launch a fleet. Returns Fleet or None if invalid."""
         if planet.owner != owner:
             return None
-        ships = int(min(ships, int(planet.ships) - 1))
-        if ships < 1:
+        # Cap ships to available amount
+        ships_to_send = int(min(ships, int(planet.ships)))
+        if ships_to_send < 1:
             return None
 
-        planet.ships -= ships
+        planet.ships -= ships_to_send
         sx, sy = physics.fleet_spawn_pos(planet.x, planet.y, planet.radius, angle)
         f = Fleet(
             id=self._fleet_id, owner=owner,
             x=sx, y=sy, angle=angle,
             from_planet_id=planet.id,
-            ships=ships,
-            speed=physics.fleet_speed(ships, config.FLEET_MAX_SPEED, config.FLEET_MIN_SPEED),
+            ships=ships_to_send,
+            speed=physics.fleet_speed(ships_to_send, config.FLEET_MAX_SPEED, config.FLEET_MIN_SPEED),
         )
         self._fleet_id += 1
         self.fleets.append(f)

@@ -65,12 +65,24 @@ class Engine:
             G.spawn_comets()
 
         # ── 3. Process fleet launches ────────────────────────────────────────
+        # Group actions by planet to handle multiple launches correctly
+        planet_actions: dict = {}  # {planet_id: [(player_id, angle, ships), ...]}
         for player_id, actions in actions_per_player.items():
             for (planet_id, angle, num_ships) in actions:
-                planet = self._get_planet(planet_id)
-                if planet is None:
-                    continue
-                G.launch_fleet(player_id, planet, angle, num_ships)
+                if planet_id not in planet_actions:
+                    planet_actions[planet_id] = []
+                planet_actions[planet_id].append((player_id, angle, num_ships))
+        
+        # Process each planet's actions sequentially
+        for planet_id, action_list in planet_actions.items():
+            planet = self._get_planet(planet_id)
+            if planet is None:
+                continue
+            
+            # Launch fleets in order, deducting ships as we go
+            for player_id, angle, num_ships in action_list:
+                if num_ships >= 1 and int(planet.ships) >= 1:
+                    G.launch_fleet(player_id, planet, angle, num_ships)
 
         # ── 4. Planet production ─────────────────────────────────────────────
         for p in G.planets:
